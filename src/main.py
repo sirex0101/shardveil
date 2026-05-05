@@ -18,11 +18,7 @@ from sv.world import LevelGenerator
 from sv.entities import Player, Skeleton
 from sv.ai import decide_enemy_action
 from sv.core.collision import MoveResult
-from sv.ui import ProgressBar
-
 from sv.ui import MessageLog, ProgressBar
-
-from sv.core.events import EventBus, GameEvent, EventType
 
 TILE_SIZE = Settings.TILE_SIZE
 PLAYER_INPUT_DIAGONAL_WINDOW = 0.02
@@ -77,8 +73,6 @@ class Game(arcade.Window):
         self.player_light = None
         self.light_pbar = None
         self.state = StateManager()
-        #СИСТЕМА СОБЫТИЙ
-        self.events = EventBus(maxlen=64)
         # Очередь врагов для последовательной обработки
         self._enemy_queue: deque = deque()
         self._current_enemy = None
@@ -204,20 +198,7 @@ class Game(arcade.Window):
 
         # Добавляем подложку в UI
         self.ui.add(self.hud_anchor)
-        self.events.emit(GameEvent(EventType.SYSTEM, "Игра запущена"))
-
-        self.events.emit(GameEvent(EventType.SYSTEM, "Добро пожаловать!"))
-
-        #СВЯЗКА EVENT → UI LOG
-
-        def handle_log(event):
-            self.message_log.push(event.text, event.type.name.lower())
-
-        self.events.subscribe(EventType.INFO, handle_log)
-        self.events.subscribe(EventType.COMBAT, handle_log)
-        self.events.subscribe(EventType.SYSTEM, handle_log)
-        self.events.emit(GameEvent(EventType.SYSTEM, "Игра запущена"))
-        self.events.emit(GameEvent(EventType.SYSTEM, "Добро пожаловать!"))
+        self.message_log.push("Добро пожаловать в игру", "system")
 
     def on_resize(self, width, height):
         super().on_resize(width, height)
@@ -351,7 +332,7 @@ class Game(arcade.Window):
         # Пропуск хода по пробелу
         if symbol == arcade.key.SPACE:
             self._recover_player_light(2)
-            self.events.emit(GameEvent(EventType.INFO, "Вы пропустили ход"))
+            self.message_log.push("Вы пропустили ход", "info")
             self.state.set_phase(GamePhase.ENEMY_TURN)
             self.process_enemy_turns()
             return
@@ -379,7 +360,7 @@ class Game(arcade.Window):
         if res == MoveResult.BLOCKED_ENTITY:
             if blocker is not None and hasattr(self.player_sprite, 'attack'):
                 self.player_sprite.attack(blocker)
-                self.events.emit(GameEvent(EventType.COMBAT, "Враг атаковал вас"))
+                self.message_log.push("Вы атаковали врага", "combat")
                 self._consume_player_light(1)
             self.state.set_phase(GamePhase.ENEMY_TURN)
             self.process_enemy_turns()
@@ -450,7 +431,7 @@ class Game(arcade.Window):
 
             if action.kind == "attack":
                 if hasattr(enemy, "attack"):
-                    self.events.emit(GameEvent(EventType.COMBAT, "Враг атаковал вас"))
+                    self.message_log.push("Враг атаковал вас", "combat")
                     enemy.attack(self.player_sprite)
                 continue
 
