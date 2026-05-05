@@ -1,12 +1,13 @@
 from collections import deque
+from dataclasses import dataclass
 
 import arcade
 
 
+@dataclass(slots=True)
 class Message:
-    def __init__(self, text: str, kind: str):
-        self.text = text
-        self.kind = kind
+    text: str
+    kind: str
 
 
 class MessageLog:
@@ -17,11 +18,11 @@ class MessageLog:
     }
 
     def __init__(self, x=10, y=70, width=350, line_height=18, max_messages=6):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.line_height = line_height
-        self.max_messages = max_messages
+        self.x = int(x)
+        self.y = int(y)
+        self.width = max(1, int(width))
+        self.line_height = max(1, int(line_height))
+        self.max_messages = max(1, int(max_messages))
         self.messages: deque[Message] = deque()
         self._text_objects: list[arcade.Text] = []
         self._dirty = True
@@ -59,11 +60,15 @@ class MessageLog:
         self._dirty = False
 
     def draw(self):
+        if not self.messages:
+            return
+
+        visible_lines = min(len(self.messages), self.max_messages)
         arcade.draw_lrbt_rectangle_filled(
             self.x - 5,
             self.x + self.width,
             self.y - 5,
-            self.y + self.line_height * self.max_messages + 5,
+            self.y + self.line_height * visible_lines + 5,
             (0, 0, 0, 120),
         )
 
