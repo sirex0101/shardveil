@@ -24,5 +24,3 @@ class ProgressBar(arcade.gui.UIAnchorLayout):
     def update_bar(self):
         self._bar.size_hint = (self.value, 1)
         self._bar.visible = self.value > 0
-
-
