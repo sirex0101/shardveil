@@ -70,7 +70,7 @@ class MessageLogTests(unittest.TestCase):
         log.push("third", "mystery")
 
         with patch("sv.ui.message_log.arcade.Text", FakeText), patch(
-            "sv.ui.message_log.arcade.draw_lrbt_rectangle_filled"
+            "sv.ui.message_log.arcade.draw_rect_filled"
         ):
             log.draw()
             first_pass = len(FakeText.created)
@@ -88,7 +88,7 @@ class MessageLogTests(unittest.TestCase):
         log = MessageLog()
 
         with patch("sv.ui.message_log.arcade.Text", FakeText), patch(
-            "sv.ui.message_log.arcade.draw_lrbt_rectangle_filled"
+            "sv.ui.message_log.arcade.draw_rect_filled"
         ):
             log.draw()
 

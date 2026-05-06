@@ -19,7 +19,7 @@ from sv.world import LevelGenerator
 from sv.entities import Player, Skeleton
 from sv.ai import decide_enemy_action
 from sv.core.collision import MoveResult
-from sv.ui import GameUI, HUDLayer, OverlayScreenId, ViewScreenId, MessageLog
+from sv.ui import GameUI, HUDLayer, OverlayScreenId, ViewScreenId
 
 TILE_SIZE = Settings.TILE_SIZE
 PLAYER_INPUT_DIAGONAL_WINDOW = 0.02
@@ -55,21 +55,17 @@ class Game(arcade.Window):
         )
 
         self.ui_manager = gui.UIManager()
+        self.hud_layer = HUDLayer()
         self.ui = GameUI(
             self.ui_manager,
-            HUDLayer(),
+            self.hud_layer,
             on_resume=self._resume_game,
             on_main_menu=self._return_to_main_menu,
             on_new_game=self.start_new_game,
             on_exit_game=self.close,
         )
 
-        self.message_log = MessageLog(
-            x=10,
-            y=70,
-            width=350,
-            max_messages=6
-        )
+        self.message_log = self.hud_layer.message_log
         
         self.level = None
         self.scene = None
@@ -216,7 +212,6 @@ class Game(arcade.Window):
                 self.scene.draw()
             self.light_layer.draw(ambient_color=(28, 24, 34, 255))
         self.ui.draw()
-        self.message_log.draw()
 
     def on_update(self, delta_time):
         if self.state.is_in_game() and self.player_sprite is not None:
