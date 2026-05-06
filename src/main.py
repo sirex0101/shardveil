@@ -55,14 +55,17 @@ class Game(arcade.Window):
         )
 
         self.ui_manager = gui.UIManager()
+        self.hud_layer = HUDLayer()
         self.ui = GameUI(
             self.ui_manager,
-            HUDLayer(),
+            self.hud_layer,
             on_resume=self._resume_game,
             on_main_menu=self._return_to_main_menu,
             on_new_game=self.start_new_game,
             on_exit_game=self.close,
         )
+
+        self.message_log = self.hud_layer.message_log
         
         self.level = None
         self.scene = None
@@ -190,6 +193,7 @@ class Game(arcade.Window):
         self.light_layer.add(self.player_light)
 
         self.state.enter_game()
+        self.message_log.push("Добро пожаловать в игру", "system")
 
     def on_resize(self, width, height):
         super().on_resize(width, height)
@@ -332,6 +336,7 @@ class Game(arcade.Window):
         # Пропуск хода по пробелу
         if symbol == arcade.key.SPACE:
             self._recover_player_light(2)
+            self.message_log.push("Вы пропустили ход", "info")
             self.state.set_phase(GamePhase.ENEMY_TURN)
             self.process_enemy_turns()
             return
@@ -359,6 +364,7 @@ class Game(arcade.Window):
         if res == MoveResult.BLOCKED_ENTITY:
             if blocker is not None and hasattr(self.player_sprite, 'attack'):
                 self.player_sprite.attack(blocker)
+                self.message_log.push("Вы атаковали врага", "combat")
                 self._consume_player_light(1)
             self.state.set_phase(GamePhase.ENEMY_TURN)
             self.process_enemy_turns()
@@ -431,6 +437,7 @@ class Game(arcade.Window):
 
             if action.kind == "attack":
                 if hasattr(enemy, "attack"):
+                    self.message_log.push("Враг атаковал вас", "combat")
                     enemy.attack(self.player_sprite)
                 continue
 
