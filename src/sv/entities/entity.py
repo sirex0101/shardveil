@@ -20,6 +20,7 @@ class Entity(arcade.Sprite):
 
         # По умолчанию сущность блокирует движение (предметы могут быть non-blocking)
         self.blocking = bool(blocking)
+        self.removed = False
 
         # --- Новые атрибуты для анимированного перемещения ---
         self.moving = False
@@ -73,11 +74,13 @@ class Entity(arcade.Sprite):
         return MoveResult.MOVED, None
 
     def take_damage(self, amount: int):
-        self.hp -= amount
+        self.hp = max(0, self.hp - amount)
         if self.hp <= 0:
             self.die()
 
     def die(self):
+        self.blocking = False
+        self.removed = True
         self.remove_from_sprite_lists()
 
     def update(self, *args, **kwargs):

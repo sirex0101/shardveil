@@ -12,6 +12,7 @@ from arcade import gui
 class ViewScreenId(str, Enum):
     MAIN_MENU = "main_menu"
     SETTINGS = "settings"
+    GAME_OVER = "game_over"
 
 
 class OverlayScreenId(str, Enum):
@@ -184,6 +185,25 @@ class SettingsScreen(MenuScreen):
         )
 
 
+class GameOverScreen(MenuScreen):
+    def __init__(
+        self,
+        on_new_game: Callable[[], None],
+        on_main_menu: Callable[[], None],
+        on_exit_game: Callable[[], None],
+    ):
+        super().__init__(
+            ViewScreenId.GAME_OVER,
+            "Вы погибли",
+            [
+                MenuAction("Новая попытка", on_new_game),
+                MenuAction("Главное меню", on_main_menu),
+                MenuAction("Выйти из игры", on_exit_game),
+            ],
+            VIEW_VISUAL_SPEC,
+        )
+
+
 class GameUI:
     def __init__(
         self,
@@ -220,6 +240,7 @@ class GameUI:
         self._view_factories = {
             ViewScreenId.MAIN_MENU: self._build_main_menu_screen,
             ViewScreenId.SETTINGS: self._build_view_settings_screen,
+            ViewScreenId.GAME_OVER: self._build_game_over_screen,
         }
 
     def setup(self) -> None:
@@ -432,6 +453,13 @@ class GameUI:
 
     def _build_view_settings_screen(self) -> SettingsScreen:
         return SettingsScreen(on_back=self.pop_view_screen, visual=VIEW_VISUAL_SPEC)
+
+    def _build_game_over_screen(self) -> GameOverScreen:
+        return GameOverScreen(
+            on_new_game=self.on_new_game,
+            on_main_menu=self.on_main_menu,
+            on_exit_game=self.on_exit_game,
+        )
 
     def _build_inventory_screen(self):
         from .inventory import InventoryScreen

@@ -269,6 +269,10 @@ class Game(arcade.Window):
                 self.process_enemy_turns()
                 return
 
+        if self._is_player_dead():
+            self._show_game_over()
+            return
+
         self._process_player_movement(now)
 
     def _player_light_ratio(self) -> float:
@@ -295,6 +299,13 @@ class Game(arcade.Window):
         except Exception:
             return 0
 
+    def _is_player_dead(self) -> bool:
+        return (
+            self.player_sprite is None
+            or getattr(self.player_sprite, "hp", 0) <= 0
+            or getattr(self.player_sprite, "removed", False)
+        )
+
     def _player_on_stairs(self) -> bool:
         if self.player_sprite is None or self.stairs_xy is None:
             return False
@@ -303,6 +314,15 @@ class Game(arcade.Window):
     def _advance_depth(self) -> None:
         self._recover_player_light(3)
         self.start_new_game(keep_player=True)
+
+    def _show_game_over(self) -> None:
+        self.movement_input.clear()
+        self._enemy_queue.clear()
+        self._current_enemy = None
+        self.state.enter_main_menu()
+        self.ui.clear_overlay()
+        self.ui.set_hud_visible(False)
+        self.ui.show_view_screen(ViewScreenId.GAME_OVER)
 
     def get_entity_at(self, tile_x: int, tile_y: int, list_name: str | None = None):
         """Возвращает сущность в списке по координатам тайла, либо None."""
@@ -395,7 +415,10 @@ class Game(arcade.Window):
         if res == MoveResult.BLOCKED_ENTITY:
             if blocker is not None and hasattr(self.player_sprite, 'attack'):
                 self.player_sprite.attack(blocker)
-                self.message_log.push("Вы атаковали врага", "combat")
+                if getattr(blocker, "hp", 1) <= 0 or getattr(blocker, "removed", False):
+                    self.message_log.push("Враг повержен", "combat")
+                else:
+                    self.message_log.push("Вы атаковали врага", "combat")
                 self._consume_player_light(1)
             self.state.set_phase(GamePhase.ENEMY_TURN)
             self.process_enemy_turns()
@@ -470,6 +493,9 @@ class Game(arcade.Window):
                 if hasattr(enemy, "attack"):
                     self.message_log.push("Враг атаковал вас", "combat")
                     enemy.attack(self.player_sprite)
+                    if self._is_player_dead():
+                        self._show_game_over()
+                        return
                 continue
 
             if action.kind != "move":
@@ -481,6 +507,9 @@ class Game(arcade.Window):
             if res == MoveResult.BLOCKED_ENTITY:
                 if blocker is self.player_sprite:
                     enemy.attack(self.player_sprite)
+                    if self._is_player_dead():
+                        self._show_game_over()
+                        return
                 continue
             if res == MoveResult.MOVED:
                 self._current_enemy = enemy
