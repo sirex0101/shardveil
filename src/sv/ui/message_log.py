@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
+import textwrap
 
 import arcade
 from arcade import gui
@@ -11,6 +12,13 @@ from arcade import gui
 class Message:
     text: str
     kind: str
+
+
+@dataclass(slots=True)
+class RenderedMessage:
+    text: arcade.Text
+    bottom: float
+    height: float
 
 
 class MessageLog(gui.UIWidget):
@@ -40,12 +48,13 @@ class MessageLog(gui.UIWidget):
         super().__init__(width=width, height=height, size_hint=None)
 
         self.max_messages = max_messages
+        self.max_lines_per_message = 2
         self.line_height = line_height
         self.padding_x = padding_x
         self.padding_y = padding_y
         self.font_size = font_size
         self.messages: deque[Message] = deque()
-        self._text_objects: list[arcade.Text] = []
+        self._rendered_messages: list[RenderedMessage] = []
         self._dirty = True
 
     def push(self, text: str, kind: str = "info"):
@@ -63,25 +72,85 @@ class MessageLog(gui.UIWidget):
         self.trigger_render()
 
     def _rebuild(self) -> None:
-        self._text_objects.clear()
+        self._rendered_messages.clear()
+        next_bottom = self.padding_y
+        content_top = self.height - self.padding_y
 
-        for index, msg in enumerate(reversed(self.messages)):
-            row_bottom = self.padding_y + self.line_height * index
+        for msg in reversed(self.messages):
+            wrapped_text, line_count = self._wrap_text(msg.text)
+            block_height = line_count * self.line_height
+            if next_bottom + block_height > content_top:
+                break
             color = self.COLORS.get(msg.kind, arcade.color.WHITE)
-            self._text_objects.append(
-                arcade.Text(
-                    msg.text,
-                    self.padding_x,
-                    row_bottom + 2,
-                    color,
-                    self.font_size,
-                    width=self.width - self.padding_x * 2,
-                    multiline=True,
-                    anchor_y="bottom",
-                )
+            self._rendered_messages.append(
+                RenderedMessage(
+                    arcade.Text(
+                        wrapped_text,
+                        self.padding_x,
+                        next_bottom + 2,
+                        color,
+                        self.font_size,
+                        width=self.width - self.padding_x * 2,
+                        multiline=True,
+                        anchor_y="bottom",
+                    ),
+                    bottom=next_bottom,
+                    height=block_height,
+                ),
             )
+            next_bottom += block_height
 
         self._dirty = False
+
+    def _wrap_text(self, text: str) -> tuple[str, int]:
+        available_width = max(1, int(self.width - self.padding_x * 2))
+        average_char_width = max(1.0, self.font_size * 0.58)
+        max_chars = max(8, int(available_width / average_char_width))
+        source_lines = str(text).splitlines() or [""]
+
+        lines: list[str] = []
+        for source_line in source_lines:
+            wrapped = textwrap.wrap(
+                source_line,
+                width=max_chars,
+                break_long_words=True,
+                replace_whitespace=False,
+            ) or [""]
+            for line in wrapped:
+                lines.append(line)
+                if len(lines) == self.max_lines_per_message:
+                    break
+            if len(lines) == self.max_lines_per_message:
+                break
+
+        if self._line_count_for_text(text, max_chars) > self.max_lines_per_message:
+            lines[-1] = self._ellipsize(lines[-1], max_chars)
+
+        return "\n".join(lines), max(1, len(lines))
+
+    def _line_count_for_text(self, text: str, max_chars: int) -> int:
+        count = 0
+        for source_line in str(text).splitlines() or [""]:
+            count += max(
+                1,
+                len(
+                    textwrap.wrap(
+                        source_line,
+                        width=max_chars,
+                        break_long_words=True,
+                        replace_whitespace=False,
+                    )
+                ),
+            )
+        return count
+
+    @staticmethod
+    def _ellipsize(text: str, max_chars: int) -> str:
+        if max_chars <= 3:
+            return "..."
+        if len(text) <= max_chars - 3:
+            return f"{text}..."
+        return f"{text[: max_chars - 3]}..."
 
     def _draw_contents(self) -> None:
         if not self.messages:
@@ -90,19 +159,17 @@ class MessageLog(gui.UIWidget):
         if self._dirty:
             self._rebuild()
 
-        row_height = self.line_height
-        for index, text in enumerate(self._text_objects):
-            row_bottom = self.padding_y + row_height * index
+        for rendered in self._rendered_messages:
             arcade.draw_rect_filled(
                 arcade.LBWH(
                     0,
-                    row_bottom,
+                    rendered.bottom,
                     self.width,
-                    row_height,
+                    rendered.height,
                 ),
                 (0, 0, 0, 120),
             )
-            text.draw()
+            rendered.text.draw()
 
     def do_render(self, surface: gui.Surface) -> None:
         surface.clear()
