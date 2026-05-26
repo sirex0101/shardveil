@@ -30,9 +30,17 @@ class FakeText:
         pass
 
 
+class DrawRectCalls:
+    created = []
+
+    def __call__(self, rect, color):
+        self.created.append((rect, color))
+
+
 class MessageLogTests(unittest.TestCase):
     def setUp(self):
         FakeText.created = []
+        DrawRectCalls.created = []
 
     def test_push_adds_messages_in_order(self):
         log = MessageLog(max_messages=3)
@@ -93,6 +101,38 @@ class MessageLogTests(unittest.TestCase):
             log.draw()
 
         self.assertEqual(FakeText.created, [])
+
+    def test_long_message_is_limited_to_two_lines(self):
+        log = MessageLog(width=90, max_messages=3, line_height=22)
+        log.push("Глубина 12. Найдите лестницу вниз и не тратьте свет зря", "system")
+
+        draw_rect_calls = DrawRectCalls()
+        with patch("sv.ui.message_log.arcade.Text", FakeText), patch(
+            "sv.ui.message_log.arcade.draw_rect_filled", draw_rect_calls
+        ):
+            log.draw()
+
+        self.assertEqual(len(FakeText.created), 1)
+        rendered_text = FakeText.created[0].text
+        self.assertLessEqual(len(rendered_text.splitlines()), 2)
+        self.assertTrue(rendered_text.endswith("..."))
+        self.assertEqual(draw_rect_calls.created[0][0].height, 44)
+
+    def test_variable_height_messages_do_not_share_the_same_row(self):
+        log = MessageLog(width=90, max_messages=4, line_height=22)
+        log.push("short", "info")
+        log.push("Очень длинное сообщение журнала боя, которое занимает две строки", "combat")
+
+        draw_rect_calls = DrawRectCalls()
+        with patch("sv.ui.message_log.arcade.Text", FakeText), patch(
+            "sv.ui.message_log.arcade.draw_rect_filled", draw_rect_calls
+        ):
+            log.draw()
+
+        first_rect = draw_rect_calls.created[0][0]
+        second_rect = draw_rect_calls.created[1][0]
+        self.assertEqual(first_rect.height, 44)
+        self.assertEqual(second_rect.bottom, first_rect.bottom + first_rect.height)
 
 
 if __name__ == "__main__":

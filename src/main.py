@@ -74,6 +74,8 @@ class Game(arcade.Window):
         self.camera_controller = None
         self.light_layer = None
         self.player_light = None
+        self.stairs_xy = None
+        self.depth = 1
         self.state = StateManager()
         # Очередь врагов для последовательной обработки
         self._enemy_queue: deque = deque()
@@ -86,9 +88,21 @@ class Game(arcade.Window):
 
     def setup(self):
         self.ui.setup()
-        self.start_new_game()
+        self.ui.set_hud_visible(False)
+        self.ui.show_view_screen(ViewScreenId.MAIN_MENU)
 
-    def start_new_game(self) -> None:
+    def start_new_game(self, *, keep_player: bool = False) -> None:
+        previous_player = self.player_sprite if keep_player else None
+        previous_inventory = getattr(previous_player, "inventory", None)
+        previous_hp = getattr(previous_player, "hp", None)
+        previous_light = getattr(previous_player, "light", None)
+        previous_zoom = (
+            self.camera_controller.zoom
+            if keep_player and self.camera_controller is not None
+            else 2.0
+        )
+
+        self.depth = self.depth + 1 if keep_player else 1
         self.ui.clear_view_screen()
         self.ui.clear_overlay()
         self.ui.set_hud_visible(True)
@@ -99,6 +113,7 @@ class Game(arcade.Window):
         # Генерируем уровень (BSP: 0=void, 1=floor, 2=wall, 3=stairs)
         gen = LevelGenerator(width=64, height=48)
         level, spawn_xy, stairs_xy = gen.generate()
+        self.stairs_xy = stairs_xy
 
         # Создаём сцену
         self.level = level
@@ -154,17 +169,23 @@ class Game(arcade.Window):
 
         # Создаём игрока в точке спавна с генератора
         self.player_sprite = Player(tile_x=spawn_xy[0], tile_y=spawn_xy[1])
+        if previous_inventory is not None:
+            self.player_sprite.inventory = previous_inventory
+        if previous_hp is not None:
+            self.player_sprite.hp = max(1, min(self.player_sprite.max_hp, int(previous_hp)))
+        if previous_light is not None:
+            self.player_sprite.light = max(0, min(self.player_sprite.light_max, int(previous_light)))
         self.scene.add_sprite("Player", self.player_sprite)
         # Настраиваем камеру
-        self.camera = arcade.camera.Camera2D(position=self.player_sprite.position, zoom=2.0)
+        self.camera = arcade.camera.Camera2D(position=self.player_sprite.position, zoom=previous_zoom)
         self.camera_controller = CameraController(
             self.camera,
             world_width=world_width,
             world_height=world_height,
-            initial_zoom=2.0,
+            initial_zoom=previous_zoom,
         )
 
-        # Скелет на случайном полу, не на спавне и не на лестнице
+        # Скелеты на случайном полу, не на спавне и не на лестнице
         floor_tiles = [
             (x, y)
             for y in range(len(level))
@@ -173,12 +194,9 @@ class Game(arcade.Window):
             and (x, y) != spawn_xy
             and (x, y) != stairs_xy
         ]
-        if floor_tiles:
-            sx, sy = random.choice(floor_tiles)
-            skeleton = Skeleton(tile_x=sx, tile_y=sy)
-        else:
-            skeleton = Skeleton(tile_x=spawn_xy[0] + 1, tile_y=spawn_xy[1])
-        self.scene.add_sprite("Skeleton", skeleton)
+        enemy_count = min(6, 1 + self.depth // 2)
+        for sx, sy in random.sample(floor_tiles, k=min(enemy_count, len(floor_tiles))):
+            self.scene.add_sprite("Skeleton", Skeleton(tile_x=sx, tile_y=sy))
 
         # Подключаем базовый световой слой через arcade.gl
         self.light_layer = LightLayer(self.settings.screen_width, self.settings.screen_height)
@@ -193,7 +211,8 @@ class Game(arcade.Window):
         self.light_layer.add(self.player_light)
 
         self.state.enter_game()
-        self.message_log.push("Добро пожаловать в игру", "system")
+        self.message_log.clear()
+        self.message_log.push(f"Глубина {self.depth}", "system")
 
     def on_resize(self, width, height):
         super().on_resize(width, height)
@@ -243,9 +262,16 @@ class Game(arcade.Window):
         # Если игрок завершил свою анимацию — запускаем очередь врагов
         if self.state.is_player_anim():
             if not getattr(self.player_sprite, "moving", False):
+                if self._player_on_stairs():
+                    self._advance_depth()
+                    return
                 self.state.set_phase(GamePhase.ENEMY_TURN)
                 self.process_enemy_turns()
                 return
+
+        if self._is_player_dead():
+            self._show_game_over()
+            return
 
         self._process_player_movement(now)
 
@@ -272,6 +298,31 @@ class Game(arcade.Window):
             return self.player_sprite.spend_light(amount)
         except Exception:
             return 0
+
+    def _is_player_dead(self) -> bool:
+        return (
+            self.player_sprite is None
+            or getattr(self.player_sprite, "hp", 0) <= 0
+            or getattr(self.player_sprite, "removed", False)
+        )
+
+    def _player_on_stairs(self) -> bool:
+        if self.player_sprite is None or self.stairs_xy is None:
+            return False
+        return (self.player_sprite.tile_x, self.player_sprite.tile_y) == self.stairs_xy
+
+    def _advance_depth(self) -> None:
+        self._recover_player_light(3)
+        self.start_new_game(keep_player=True)
+
+    def _show_game_over(self) -> None:
+        self.movement_input.clear()
+        self._enemy_queue.clear()
+        self._current_enemy = None
+        self.state.enter_main_menu()
+        self.ui.clear_overlay()
+        self.ui.set_hud_visible(False)
+        self.ui.show_view_screen(ViewScreenId.GAME_OVER)
 
     def get_entity_at(self, tile_x: int, tile_y: int, list_name: str | None = None):
         """Возвращает сущность в списке по координатам тайла, либо None."""
@@ -364,7 +415,10 @@ class Game(arcade.Window):
         if res == MoveResult.BLOCKED_ENTITY:
             if blocker is not None and hasattr(self.player_sprite, 'attack'):
                 self.player_sprite.attack(blocker)
-                self.message_log.push("Вы атаковали врага", "combat")
+                if getattr(blocker, "hp", 1) <= 0 or getattr(blocker, "removed", False):
+                    self.message_log.push("Враг повержен", "combat")
+                else:
+                    self.message_log.push("Вы атаковали врага", "combat")
                 self._consume_player_light(1)
             self.state.set_phase(GamePhase.ENEMY_TURN)
             self.process_enemy_turns()
@@ -439,6 +493,9 @@ class Game(arcade.Window):
                 if hasattr(enemy, "attack"):
                     self.message_log.push("Враг атаковал вас", "combat")
                     enemy.attack(self.player_sprite)
+                    if self._is_player_dead():
+                        self._show_game_over()
+                        return
                 continue
 
             if action.kind != "move":
@@ -450,6 +507,9 @@ class Game(arcade.Window):
             if res == MoveResult.BLOCKED_ENTITY:
                 if blocker is self.player_sprite:
                     enemy.attack(self.player_sprite)
+                    if self._is_player_dead():
+                        self._show_game_over()
+                        return
                 continue
             if res == MoveResult.MOVED:
                 self._current_enemy = enemy
