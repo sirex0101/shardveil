@@ -90,7 +90,7 @@ class MessageLog(gui.UIWidget):
                         next_bottom + 2,
                         color,
                         self.font_size,
-                        width=self.width - self.padding_x * 2,
+                        width=int(self.width - self.padding_x * 2),
                         multiline=True,
                         anchor_y="bottom",
                     ),

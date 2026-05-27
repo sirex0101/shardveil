@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import arcade
 from arcade import gui
 from arcade.gui import events
-from arcade.gui.widgets import EVENT_HANDLED, EVENT_UNHANDLED
+from pyglet.event import EVENT_HANDLED, EVENT_UNHANDLED
 
 from sv.items import EQUIPMENT_SLOT_ORDER, Inventory, STORAGE_COLUMNS, STORAGE_ROWS, load_item_textures
 
@@ -245,7 +246,7 @@ class InventoryPanel(gui.UIWidget):
                 rect.left + INFO_PANEL_PADDING,
                 content_top - 54,
                 width=rect.width - INFO_PANEL_PADDING * 2,
-                color=(211, 215, 223, 255),
+                color=cast(arcade.types.Color, (211, 215, 223, 255)),
                 font_size=10,
             )
 
