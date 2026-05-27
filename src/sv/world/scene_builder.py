@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, TypeVar
 
 import arcade
 
@@ -14,10 +14,11 @@ from sv.world.level_generator import LevelGenerator
 
 
 TILE_SIZE = Settings.TILE_SIZE
+SampleItem = TypeVar("SampleItem")
 
 
 class RandomSampler(Protocol):
-    def sample(self, population, k: int): ...
+    def sample(self, population: list[SampleItem], k: int) -> list[SampleItem]: ...
 
 
 @dataclass(slots=True)

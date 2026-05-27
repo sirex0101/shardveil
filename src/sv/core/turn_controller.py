@@ -106,24 +106,28 @@ class TurnController:
         return res, blocker
 
     def try_player_move(self, dx, dy):
-        res, blocker = self.move_with_fallback(self.player, dx, dy)
+        player = self.player
+        if player is None:
+            return None, None
+
+        res, blocker = self.move_with_fallback(player, dx, dy)
         if res is None:
             return None, None
         if res == MoveResult.BLOCKED_WALL:
             return res, blocker
         if res == MoveResult.BLOCKED_ENTITY:
-            if blocker is not None and hasattr(self.player, "attack"):
-                self.player.attack(blocker)
+            if blocker is not None and hasattr(player, "attack"):
+                player.attack(blocker)
                 if getattr(blocker, "hp", 1) <= 0 or getattr(blocker, "removed", False):
                     self.message_log.push("Враг повержен", "combat")
                 else:
                     self.message_log.push("Вы атаковали врага", "combat")
-                consume_player_light(self.player, PLAYER_ACTION_LIGHT_COST)
+                consume_player_light(player, PLAYER_ACTION_LIGHT_COST)
             self.state.set_phase(GamePhase.ENEMY_TURN)
             self.process_enemy_turns()
             return res, blocker
         if res == MoveResult.MOVED:
-            consume_player_light(self.player, PLAYER_ACTION_LIGHT_COST)
+            consume_player_light(player, PLAYER_ACTION_LIGHT_COST)
             self.state.set_phase(GamePhase.PLAYER_ANIM)
             return res, blocker
         return res, blocker

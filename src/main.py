@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 import arcade
-from arcade import gl
+from arcade.gl.enums import NEAREST
 
 from sv.game import Game
 
@@ -13,7 +13,7 @@ def configure_assets() -> None:
 
 
 def configure_rendering() -> None:
-    arcade.SpriteList.DEFAULT_TEXTURE_FILTER = gl.NEAREST, gl.NEAREST
+    arcade.SpriteList.DEFAULT_TEXTURE_FILTER = NEAREST, NEAREST
 
 
 def main() -> None:

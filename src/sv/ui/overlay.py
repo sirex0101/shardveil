@@ -4,9 +4,13 @@ from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Generic, TypeVar, cast
 
 import arcade
 from arcade import gui
+
+
+ScreenId = TypeVar("ScreenId", bound=Enum)
 
 
 class ViewScreenId(str, Enum):
@@ -28,13 +32,13 @@ class MenuAction:
 
 
 @dataclass
-class ScreenStack:
-    _items: list[Enum] = field(default_factory=list)
+class ScreenStack(Generic[ScreenId]):
+    _items: list[ScreenId] = field(default_factory=list)
 
-    def push(self, screen_id: Enum) -> None:
+    def push(self, screen_id: ScreenId) -> None:
         self._items.append(screen_id)
 
-    def pop(self) -> Enum | None:
+    def pop(self) -> ScreenId | None:
         if not self._items:
             return None
         return self._items.pop()
@@ -42,7 +46,7 @@ class ScreenStack:
     def clear(self) -> None:
         self._items.clear()
 
-    def current(self) -> Enum | None:
+    def current(self) -> ScreenId | None:
         if not self._items:
             return None
         return self._items[-1]
@@ -70,7 +74,7 @@ OVERLAY_VISUAL_SPEC = MenuVisualSpec(
     panel_width=360,
     panel_height=280,
     title_font_size=24,
-    overlay_color=(4, 6, 10, 190),
+    overlay_color=cast(arcade.types.Color, (4, 6, 10, 190)),
 )
 
 VIEW_VISUAL_SPEC = MenuVisualSpec(
@@ -79,7 +83,7 @@ VIEW_VISUAL_SPEC = MenuVisualSpec(
     panel_width=420,
     panel_height=340,
     title_font_size=40,
-    overlay_color=(8, 10, 16, 255),
+    overlay_color=cast(arcade.types.Color, (8, 10, 16, 255)),
 )
 
 
@@ -99,7 +103,7 @@ class MenuScreen:
             height=self.visual.panel_height,
             size_hint=None,
         )
-        panel.with_background(color=(20, 22, 28, 235))
+        panel.with_background(color=cast(arcade.types.Color, (20, 22, 28, 235)))
         panel.with_border(color=arcade.color.DAVY_GREY, width=2)
 
         content = gui.UIBoxLayout(vertical=True, space_between=18, align="center")
@@ -122,7 +126,8 @@ class MenuScreen:
                 style=_menu_button_style(),
             )
 
-            def _on_click(_event, callback: Callable[[], None] = action.callback) -> None:
+            def _on_click(event, callback: Callable[[], None] = action.callback) -> None:
+                del event
                 callback()
 
             button.on_click = _on_click
@@ -221,8 +226,8 @@ class GameUI:
         self.on_main_menu = on_main_menu
         self.on_new_game = on_new_game
         self.on_exit_game = on_exit_game
-        self.overlay_stack: ScreenStack = ScreenStack()
-        self.view_stack: ScreenStack = ScreenStack()
+        self.overlay_stack: ScreenStack[OverlayScreenId] = ScreenStack()
+        self.view_stack: ScreenStack[ViewScreenId] = ScreenStack()
         self._active_overlay: gui.UIWidget | None = None
         self._active_view: gui.UIWidget | None = None
         self._current_overlay_screen: MenuScreen | None = None
@@ -232,12 +237,12 @@ class GameUI:
         self._view_buttons: list[gui.UIFlatButton] = []
         self._overlay_selected_index = 0
         self._view_selected_index = 0
-        self._overlay_factories = {
+        self._overlay_factories: dict[OverlayScreenId, Callable[[], Any]] = {
             OverlayScreenId.PAUSE: self._build_pause_screen,
             OverlayScreenId.SETTINGS: self._build_overlay_settings_screen,
             OverlayScreenId.INVENTORY: self._build_inventory_screen,
         }
-        self._view_factories = {
+        self._view_factories: dict[ViewScreenId, Callable[[], MenuScreen]] = {
             ViewScreenId.MAIN_MENU: self._build_main_menu_screen,
             ViewScreenId.SETTINGS: self._build_view_settings_screen,
             ViewScreenId.GAME_OVER: self._build_game_over_screen,
@@ -449,10 +454,16 @@ class GameUI:
         )
 
     def _build_overlay_settings_screen(self) -> SettingsScreen:
-        return SettingsScreen(on_back=self.pop_screen, visual=OVERLAY_VISUAL_SPEC)
+        return SettingsScreen(on_back=self._close_overlay_settings_screen, visual=OVERLAY_VISUAL_SPEC)
 
     def _build_view_settings_screen(self) -> SettingsScreen:
-        return SettingsScreen(on_back=self.pop_view_screen, visual=VIEW_VISUAL_SPEC)
+        return SettingsScreen(on_back=self._close_view_settings_screen, visual=VIEW_VISUAL_SPEC)
+
+    def _close_overlay_settings_screen(self) -> None:
+        self.pop_screen()
+
+    def _close_view_settings_screen(self) -> None:
+        self.pop_view_screen()
 
     def _build_game_over_screen(self) -> GameOverScreen:
         return GameOverScreen(
@@ -469,7 +480,7 @@ class GameUI:
         return InventoryScreen(inventory=self._inventory_source, on_close=self.on_resume)
 
 
-def _menu_button_style() -> dict[str, dict[str, object]]:
+def _menu_button_style() -> dict[str, Any]:
     style = deepcopy(gui.UIFlatButton.DEFAULT_STYLE)
     style["normal"].font_size = 14
     style["normal"].font_color = arcade.color.WHITE

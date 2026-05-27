@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 import arcade
 from arcade.future.light import Light, LightLayer
@@ -20,10 +21,10 @@ LIGHT_BACKGROUND_COLOR = (0, 0, 0, 255)
 
 @dataclass(slots=True)
 class RenderingFactories:
-    camera: Callable[..., object] = arcade.camera.Camera2D
+    camera: Callable[..., Any] = arcade.camera.Camera2D
     camera_controller: Callable[..., CameraController] = CameraController
-    light_layer: Callable[..., object] = LightLayer
-    light: Callable[..., object] = Light
+    light_layer: Callable[..., Any] = LightLayer
+    light: Callable[..., Any] = Light
 
 
 class GameRenderer:
@@ -35,11 +36,11 @@ class GameRenderer:
     ) -> None:
         self.settings = settings
         self.factories = factories or RenderingFactories()
-        self.scene = None
-        self.camera = None
-        self.camera_controller = None
-        self.light_layer = None
-        self.player_light = None
+        self.scene: Any | None = None
+        self.camera: Any | None = None
+        self.camera_controller: CameraController | Any | None = None
+        self.light_layer: Any | None = None
+        self.player_light: Any | None = None
 
     @property
     def current_zoom(self) -> float:
@@ -64,19 +65,21 @@ class GameRenderer:
             initial_zoom=zoom,
         )
 
-        self.light_layer = self.factories.light_layer(
+        light_layer = self.factories.light_layer(
             self.settings.screen_width,
             self.settings.screen_height,
         )
-        self.light_layer.set_background_color(LIGHT_BACKGROUND_COLOR)
-        self.player_light = self.factories.light(
+        light_layer.set_background_color(LIGHT_BACKGROUND_COLOR)
+        player_light = self.factories.light(
             player.center_x,
             player.center_y,
             radius=180,
             color=PLAYER_LIGHT_COLOR,
             mode="soft",
         )
-        self.light_layer.add(self.player_light)
+        light_layer.add(player_light)
+        self.light_layer = light_layer
+        self.player_light = player_light
 
     def resize(self, width: int, height: int) -> None:
         if self.camera_controller is not None:

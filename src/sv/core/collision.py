@@ -116,6 +116,8 @@ def attempt_move(entity, dx: int, dy: int, level, scene) -> tuple[MoveResult, ob
     res, blocker, target_tx, target_ty = can_move(entity, dx, dy, level, scene)
     if res != MoveResult.MOVED:
         return res, blocker
+    if target_tx is None or target_ty is None:
+        return MoveResult.BLOCKED_WALL, None
 
     # Коммит перемещения: обновим tile и мировые координаты
     try:

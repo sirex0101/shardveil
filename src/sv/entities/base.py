@@ -70,6 +70,8 @@ class Entity(arcade.Sprite):
         res, blocker, target_tx, target_ty = can_move(self, dx, dy, level, scene)
         if res != MoveResult.MOVED:
             return res, blocker
+        if target_tx is None or target_ty is None:
+            return MoveResult.BLOCKED_WALL, None
 
         committed = commit_tile(self, target_tx, target_ty)
         if not committed:
