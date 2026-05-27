@@ -12,11 +12,13 @@ from arcade import gui
 class ViewScreenId(str, Enum):
     MAIN_MENU = "main_menu"
     SETTINGS = "settings"
+    GAME_OVER = "game_over"
 
 
 class OverlayScreenId(str, Enum):
     PAUSE = "pause"
     SETTINGS = "settings"
+    INVENTORY = "inventory"
 
 
 @dataclass(frozen=True)
@@ -131,6 +133,9 @@ class MenuScreen:
         root.add(panel, anchor_x="center", anchor_y="center")
         return root, buttons
 
+    def handle_key_press(self, symbol: int) -> bool:
+        return False
+
 
 class MainMenuScreen(MenuScreen):
     def __init__(
@@ -180,6 +185,25 @@ class SettingsScreen(MenuScreen):
         )
 
 
+class GameOverScreen(MenuScreen):
+    def __init__(
+        self,
+        on_new_game: Callable[[], None],
+        on_main_menu: Callable[[], None],
+        on_exit_game: Callable[[], None],
+    ):
+        super().__init__(
+            ViewScreenId.GAME_OVER,
+            "Вы погибли",
+            [
+                MenuAction("Новая попытка", on_new_game),
+                MenuAction("Главное меню", on_main_menu),
+                MenuAction("Выйти из игры", on_exit_game),
+            ],
+            VIEW_VISUAL_SPEC,
+        )
+
+
 class GameUI:
     def __init__(
         self,
@@ -203,6 +227,7 @@ class GameUI:
         self._active_view: gui.UIWidget | None = None
         self._current_overlay_screen: MenuScreen | None = None
         self._current_view_screen: MenuScreen | None = None
+        self._inventory_source = None
         self._overlay_buttons: list[gui.UIFlatButton] = []
         self._view_buttons: list[gui.UIFlatButton] = []
         self._overlay_selected_index = 0
@@ -210,10 +235,12 @@ class GameUI:
         self._overlay_factories = {
             OverlayScreenId.PAUSE: self._build_pause_screen,
             OverlayScreenId.SETTINGS: self._build_overlay_settings_screen,
+            OverlayScreenId.INVENTORY: self._build_inventory_screen,
         }
         self._view_factories = {
             ViewScreenId.MAIN_MENU: self._build_main_menu_screen,
             ViewScreenId.SETTINGS: self._build_view_settings_screen,
+            ViewScreenId.GAME_OVER: self._build_game_over_screen,
         }
 
     def setup(self) -> None:
@@ -261,6 +288,11 @@ class GameUI:
         self.clear_overlay()
         self.push_screen(screen_id)
 
+    def show_inventory(self, inventory) -> None:
+        self.clear_overlay()
+        self._inventory_source = inventory
+        self.push_screen(OverlayScreenId.INVENTORY)
+
     def push_screen(self, screen_id: OverlayScreenId) -> None:
         self.overlay_stack.push(screen_id)
         self._render_overlay_screen()
@@ -276,6 +308,7 @@ class GameUI:
         self._current_overlay_screen = None
         self._overlay_buttons = []
         self._overlay_selected_index = 0
+        self._inventory_source = None
 
     def handle_key_press(self, symbol: int, modifiers: int) -> bool:
         if self.has_active_overlay():
@@ -291,6 +324,13 @@ class GameUI:
             else:
                 self.on_resume()
             return True
+        screen = self._current_overlay_screen
+        if screen is None:
+            return False
+        if getattr(screen, "panel", None) is not None:
+            handle_key_press = getattr(screen, "handle_key_press", None)
+            if callable(handle_key_press):
+                return bool(handle_key_press(symbol))
         return self._handle_menu_navigation(symbol, overlay=True)
 
     def _handle_view_key_press(self, symbol: int) -> bool:
@@ -343,7 +383,8 @@ class GameUI:
         self._current_overlay_screen = screen
         self._overlay_buttons = buttons
         self._overlay_selected_index = 0
-        self._refresh_button_labels(overlay=True)
+        if buttons:
+            self._refresh_button_labels(overlay=True)
 
     def _render_view_screen(self) -> None:
         self._remove_active_view()
@@ -386,7 +427,7 @@ class GameUI:
             buttons = self._view_buttons
             selected_index = self._view_selected_index
 
-        if screen is None:
+        if screen is None or not hasattr(screen, "actions"):
             return
         for index, button in enumerate(buttons):
             label = screen.actions[index].label
@@ -412,6 +453,20 @@ class GameUI:
 
     def _build_view_settings_screen(self) -> SettingsScreen:
         return SettingsScreen(on_back=self.pop_view_screen, visual=VIEW_VISUAL_SPEC)
+
+    def _build_game_over_screen(self) -> GameOverScreen:
+        return GameOverScreen(
+            on_new_game=self.on_new_game,
+            on_main_menu=self.on_main_menu,
+            on_exit_game=self.on_exit_game,
+        )
+
+    def _build_inventory_screen(self):
+        from .inventory import InventoryScreen
+
+        if self._inventory_source is None:
+            raise RuntimeError("Inventory screen requested without inventory data")
+        return InventoryScreen(inventory=self._inventory_source, on_close=self.on_resume)
 
 
 def _menu_button_style() -> dict[str, dict[str, object]]:

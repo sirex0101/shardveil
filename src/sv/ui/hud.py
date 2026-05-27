@@ -3,6 +3,8 @@ from __future__ import annotations
 import arcade
 from arcade import gui
 
+from .message_log import MessageLog
+
 
 class ProgressBar(gui.UIAnchorLayout):
     value = gui.Property(0.0)
@@ -55,6 +57,15 @@ class HUDLayer:
             anchor_y="bottom",
             align_x=8,
             align_y=10,
+        )
+
+        self.message_log = MessageLog(width=300, max_messages=6)
+        self.root.add(
+            self.message_log,
+            anchor_x="left",
+            anchor_y="bottom",
+            align_x=8,
+            align_y=34,
         )
 
     def update(self, health_ratio: float, light_ratio: float) -> None:
