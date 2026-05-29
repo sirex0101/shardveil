@@ -25,9 +25,10 @@ def iter_blocking_entities(scene, ignore=None):
     if scene is None:
         return
 
-    sprite_lists = getattr(scene, "sprite_lists", None)
+    sprite_lists = getattr(scene, "sprite_lists", None) or getattr(scene, "_sprite_lists", None)
     if sprite_lists:
-        for sprites in sprite_lists.values():
+        values = sprite_lists.values() if hasattr(sprite_lists, "values") else sprite_lists
+        for sprites in values:
             try:
                 for sprite in sprites:
                     if sprite is ignore:

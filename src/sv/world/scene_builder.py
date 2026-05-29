@@ -10,7 +10,7 @@ import arcade
 from sv.core.config import Settings
 from sv.core.player_resources import PlayerCarryover, apply_player_carryover
 from sv.entities import Player, Skeleton
-from sv.items import DEFAULT_ITEM_DEFINITIONS, MapItem
+from sv.items import DEFAULT_ITEM_DEFINITIONS, ItemStack, MapChest, MapItem
 from sv.world.level_generator import LevelGenerator
 
 
@@ -60,6 +60,7 @@ def build_level_scene(
     scene.add_sprite_list("Ground")
     scene.add_sprite_list("Walls")
     scene.add_sprite_list("Items")
+    scene.add_sprite_list("Chests")
     scene.add_sprite_list("Player")
     scene.add_sprite_list("Skeleton")
 
@@ -90,6 +91,12 @@ def build_level_scene(
     for index, (sx, sy) in enumerate(rng.sample(item_tiles, k=min(item_count, len(item_tiles)))):
         definition = item_definitions[index % len(item_definitions)]
         scene.add_sprite("Items", MapItem(definition, sx, sy))
+
+    occupied_tiles.update((sprite.tile_x, sprite.tile_y) for sprite in scene["Items"])
+    chest_tiles = [tile for tile in floor_tiles if tile not in occupied_tiles]
+    if chest_tiles:
+        chest_x, chest_y = rng.sample(chest_tiles, k=1)[0]
+        scene.add_sprite("Chests", MapChest(ItemStack(DEFAULT_ITEM_DEFINITIONS["potion"]), chest_x, chest_y))
 
     return SceneBuildResult(
         level=level,

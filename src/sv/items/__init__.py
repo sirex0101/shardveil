@@ -5,8 +5,10 @@ from .item import (
     EquipmentSlot,
     ItemDefinition,
     ItemKind,
+    MapChest,
     ItemStack,
     MapItem,
+    load_chest_texture,
     load_item_textures,
 )
 from .inventory import (
@@ -32,10 +34,12 @@ __all__ = [
     "InventoryMoveResult",
     "ItemDefinition",
     "ItemKind",
+    "MapChest",
     "ItemStack",
     "MapItem",
     "STORAGE_COLUMNS",
     "STORAGE_ROWS",
     "create_default_inventory",
+    "load_chest_texture",
     "load_item_textures",
 ]
