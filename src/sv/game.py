@@ -175,6 +175,9 @@ class Game(arcade.Window):
         if symbol == arcade.key.SPACE:
             self.player_input.wait_turn(self.player_sprite)
             return
+        if symbol == arcade.key.C:
+            self.turn_controller.pick_up_at_player()
+            return
 
     def on_key_release(self, symbol, modifiers):
         if not self.state.is_in_game() or self.ui.has_active_overlay():

@@ -67,6 +67,8 @@ class SceneBuilderTests(unittest.TestCase):
         self.assertEqual(result.world_height, 64)
         self.assertEqual(len(result.scene["Ground"]), 4)
         self.assertEqual(len(result.scene["Walls"]), 1)
+        self.assertEqual(len(result.scene["Items"]), 1)
+        self.assertEqual(len(result.scene["Chests"]), 0)
         self.assertEqual(len(result.scene["Player"]), 1)
         self.assertEqual(len(result.scene["Skeleton"]), 1)
         self.assertIs(result.player, result.scene["Player"][0])
@@ -81,6 +83,18 @@ class SceneBuilderTests(unittest.TestCase):
         )
 
         self.assertEqual(len(result.scene["Skeleton"]), 6)
+        self.assertEqual(len(result.scene["Items"]), 4)
+        self.assertEqual(len(result.scene["Chests"]), 1)
+
+        occupied = {
+            (sprite.tile_x, sprite.tile_y)
+            for list_name in ("Skeleton", "Items")
+            for sprite in result.scene[list_name]
+        }
+        chest = result.scene["Chests"][0]
+        self.assertNotIn((chest.tile_x, chest.tile_y), occupied)
+        self.assertNotEqual((chest.tile_x, chest.tile_y), (0, 0))
+        self.assertNotEqual((chest.tile_x, chest.tile_y), (9, 1))
 
 
 if __name__ == "__main__":

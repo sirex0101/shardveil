@@ -7,6 +7,8 @@ from pathlib import Path
 
 import arcade
 
+from sv.core.config import Settings
+
 
 class ItemKind(Enum):
     WEAPON = auto()
@@ -77,6 +79,9 @@ class ItemStack:
 
 _ITEM_TEXTURE_SIZE = 16
 _ITEM_SPRITESHEET_PATH = ":assets:/sprites/items.png"
+_CHEST_TEXTURE_PATH = ":assets:/sprites/chest.png"
+MAP_ITEM_SCALE = 2.0
+TILE_SIZE = Settings.TILE_SIZE
 
 
 @lru_cache(maxsize=1)
@@ -88,6 +93,51 @@ def load_item_textures() -> tuple[arcade.Texture, ...]:
         sheet = arcade.load_spritesheet(fallback_path)
     textures = sheet.get_texture_grid((_ITEM_TEXTURE_SIZE, _ITEM_TEXTURE_SIZE), columns=4, count=4)
     return tuple(textures)
+
+
+@lru_cache(maxsize=1)
+def load_chest_texture() -> arcade.Texture:
+    try:
+        return arcade.load_texture(_CHEST_TEXTURE_PATH)
+    except FileNotFoundError:
+        fallback_path = Path(__file__).resolve().parents[3] / "assets" / "sprites" / "chest.png"
+        return arcade.load_texture(fallback_path)
+
+
+class MapItem(arcade.Sprite):
+    """Non-blocking item pickup placed on the tile grid."""
+
+    def __init__(
+        self,
+        definition: ItemDefinition,
+        tile_x: int,
+        tile_y: int,
+        *,
+        quantity: int = 1,
+    ) -> None:
+        super().__init__(scale=MAP_ITEM_SCALE)
+        self.definition = definition
+        self.stack = ItemStack(definition, quantity)
+        self.tile_x = int(tile_x)
+        self.tile_y = int(tile_y)
+        self.blocking = False
+        self.texture = load_item_textures()[definition.icon_index]
+        self.center_x = self.tile_x * TILE_SIZE + TILE_SIZE / 2
+        self.center_y = self.tile_y * TILE_SIZE + TILE_SIZE / 2
+
+
+class MapChest(arcade.Sprite):
+    """Blocking chest with one loot stack."""
+
+    def __init__(self, stack: ItemStack, tile_x: int, tile_y: int) -> None:
+        super().__init__()
+        self.stack = stack
+        self.tile_x = int(tile_x)
+        self.tile_y = int(tile_y)
+        self.blocking = True
+        self.texture = load_chest_texture()
+        self.center_x = self.tile_x * TILE_SIZE + TILE_SIZE / 2
+        self.center_y = self.tile_y * TILE_SIZE + TILE_SIZE / 2
 
 
 DEFAULT_ITEM_DEFINITIONS: dict[str, ItemDefinition] = {

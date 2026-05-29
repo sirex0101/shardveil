@@ -10,6 +10,7 @@ from sv.core.player_resources import (
     consume_player_light,
 )
 from sv.core.state_manager import GamePhase, StateManager
+from sv.items import MapItem
 
 
 class TurnController:
@@ -64,6 +65,12 @@ class TurnController:
                         return sprite
         return None
 
+    def get_item_at(self, tile_x: int, tile_y: int):
+        return self.get_entity_at(tile_x, tile_y, "Items")
+
+    def get_chest_at(self, tile_x: int, tile_y: int):
+        return self.get_entity_at(tile_x, tile_y, "Chests")
+
     def is_player_dead(self) -> bool:
         return (
             self.player is None
@@ -84,6 +91,7 @@ class TurnController:
         if self.player_on_stairs(stairs_xy):
             self.on_depth_advance()
             return True
+        self.pick_up_at_player(manual=False)
         self.state.set_phase(GamePhase.ENEMY_TURN)
         self.process_enemy_turns()
         return True
@@ -92,6 +100,63 @@ class TurnController:
         self.message_log.push("Вы пропустили ход", "info")
         self.state.set_phase(GamePhase.ENEMY_TURN)
         self.process_enemy_turns()
+
+    def pick_up_at_player(self, *, manual: bool = True) -> bool:
+        if self.player is None:
+            return False
+
+        item = self.get_item_at(self.player.tile_x, self.player.tile_y)
+        if item is not None:
+            return self._collect_map_object(
+                item,
+                success_message=f"Вы подобрали {item.stack.name}",
+                manual=manual,
+            )
+
+        if manual:
+            self.message_log.push("Здесь ничего нет", "info")
+        return False
+
+    def open_chest(self, chest) -> bool:
+        if chest is None:
+            return False
+
+        stack = getattr(chest, "stack", None)
+        if stack is None or self.scene is None:
+            return False
+
+        chest.remove_from_sprite_lists()
+        self.scene.add_sprite(
+            "Items",
+            MapItem(
+                stack.definition,
+                chest.tile_x,
+                chest.tile_y,
+                quantity=stack.quantity,
+            ),
+        )
+        consume_player_light(self.player, PLAYER_ACTION_LIGHT_COST)
+        self.state.set_phase(GamePhase.ENEMY_TURN)
+        self.process_enemy_turns()
+        return True
+
+    def _collect_map_object(self, obj, *, success_message: str, manual: bool) -> bool:
+        inventory = getattr(self.player, "inventory", None)
+        if inventory is None or not hasattr(inventory, "add_stack"):
+            self.message_log.push("Некуда положить предмет", "info")
+            return False
+
+        result = inventory.add_stack(getattr(obj, "stack", None))
+        if not result.added:
+            self.message_log.push(result.reason or "Инвентарь заполнен.", "info")
+            return False
+
+        obj.remove_from_sprite_lists()
+        self.message_log.push(success_message, "loot")
+        if manual:
+            self.state.set_phase(GamePhase.ENEMY_TURN)
+            self.process_enemy_turns()
+        return True
 
     def move_with_fallback(self, entity, dx, dy):
         res, blocker = entity.attempt_move(dx, dy, self.level, self.scene)
@@ -116,6 +181,12 @@ class TurnController:
         if res == MoveResult.BLOCKED_WALL:
             return res, blocker
         if res == MoveResult.BLOCKED_ENTITY:
+            if blocker is not None and blocker is self.get_chest_at(
+                getattr(blocker, "tile_x", -1),
+                getattr(blocker, "tile_y", -1),
+            ):
+                self.open_chest(blocker)
+                return res, blocker
             if blocker is not None and hasattr(player, "attack"):
                 player.attack(blocker)
                 if getattr(blocker, "hp", 1) <= 0 or getattr(blocker, "removed", False):
