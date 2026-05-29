@@ -6,6 +6,7 @@ from .item import (
     ItemDefinition,
     ItemKind,
     ItemStack,
+    MapItem,
     load_item_textures,
 )
 from .inventory import (
@@ -13,6 +14,7 @@ from .inventory import (
     INVENTORY_COLUMNS,
     INVENTORY_ROWS,
     Inventory,
+    InventoryAddResult,
     InventoryMoveResult,
     STORAGE_COLUMNS,
     STORAGE_ROWS,
@@ -26,10 +28,12 @@ __all__ = [
     "INVENTORY_COLUMNS",
     "INVENTORY_ROWS",
     "Inventory",
+    "InventoryAddResult",
     "InventoryMoveResult",
     "ItemDefinition",
     "ItemKind",
     "ItemStack",
+    "MapItem",
     "STORAGE_COLUMNS",
     "STORAGE_ROWS",
     "create_default_inventory",

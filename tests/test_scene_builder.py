@@ -67,6 +67,7 @@ class SceneBuilderTests(unittest.TestCase):
         self.assertEqual(result.world_height, 64)
         self.assertEqual(len(result.scene["Ground"]), 4)
         self.assertEqual(len(result.scene["Walls"]), 1)
+        self.assertEqual(len(result.scene["Items"]), 1)
         self.assertEqual(len(result.scene["Player"]), 1)
         self.assertEqual(len(result.scene["Skeleton"]), 1)
         self.assertIs(result.player, result.scene["Player"][0])
@@ -81,6 +82,7 @@ class SceneBuilderTests(unittest.TestCase):
         )
 
         self.assertEqual(len(result.scene["Skeleton"]), 6)
+        self.assertEqual(len(result.scene["Items"]), 4)
 
 
 if __name__ == "__main__":

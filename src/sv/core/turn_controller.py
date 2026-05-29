@@ -64,6 +64,9 @@ class TurnController:
                         return sprite
         return None
 
+    def get_item_at(self, tile_x: int, tile_y: int):
+        return self.get_entity_at(tile_x, tile_y, "Items")
+
     def is_player_dead(self) -> bool:
         return (
             self.player is None
@@ -84,6 +87,7 @@ class TurnController:
         if self.player_on_stairs(stairs_xy):
             self.on_depth_advance()
             return True
+        self.pick_up_at_player(manual=False)
         self.state.set_phase(GamePhase.ENEMY_TURN)
         self.process_enemy_turns()
         return True
@@ -92,6 +96,33 @@ class TurnController:
         self.message_log.push("Вы пропустили ход", "info")
         self.state.set_phase(GamePhase.ENEMY_TURN)
         self.process_enemy_turns()
+
+    def pick_up_at_player(self, *, manual: bool = True) -> bool:
+        if self.player is None:
+            return False
+
+        item = self.get_item_at(self.player.tile_x, self.player.tile_y)
+        if item is None:
+            if manual:
+                self.message_log.push("Здесь ничего нет", "info")
+            return False
+
+        inventory = getattr(self.player, "inventory", None)
+        if inventory is None or not hasattr(inventory, "add_stack"):
+            self.message_log.push("Некуда положить предмет", "info")
+            return False
+
+        result = inventory.add_stack(getattr(item, "stack", None))
+        if not result.added:
+            self.message_log.push(result.reason or "Инвентарь заполнен.", "info")
+            return False
+
+        item.remove_from_sprite_lists()
+        self.message_log.push(f"Вы подобрали {item.stack.name}", "loot")
+        if manual:
+            self.state.set_phase(GamePhase.ENEMY_TURN)
+            self.process_enemy_turns()
+        return True
 
     def move_with_fallback(self, entity, dx, dy):
         res, blocker = entity.attempt_move(dx, dy, self.level, self.scene)

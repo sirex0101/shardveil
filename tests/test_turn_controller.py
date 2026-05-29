@@ -21,10 +21,11 @@ class FakeMessageLog:
 
 
 class FakeScene:
-    def __init__(self, skeletons=None, player=None):
+    def __init__(self, skeletons=None, player=None, items=None):
         self._lists = {
             "Skeleton": skeletons or [],
             "Player": [player] if player is not None else [],
+            "Items": items or [],
         }
 
     def get_sprite_list(self, name):
@@ -39,6 +40,7 @@ class FakePlayer:
         self.max_hp = hp
         self.removed = False
         self.moving = False
+        self.inventory = None
 
 
 class FakeEnemy:
@@ -51,6 +53,37 @@ class FakeEnemy:
 
     def attack(self, target):
         target.hp = max(0, target.hp - self.damage)
+
+
+class FakeAddResult:
+    def __init__(self, added=True, reason=None):
+        self.added = added
+        self.reason = reason
+
+
+class FakeInventory:
+    def __init__(self, *, added=True):
+        self.added = added
+        self.added_stacks = []
+
+    def add_stack(self, stack):
+        self.added_stacks.append(stack)
+        return FakeAddResult(self.added, "Инвентарь заполнен.")
+
+
+class FakeStack:
+    name = "Зелье"
+
+
+class FakeItem:
+    def __init__(self, tile_x=0, tile_y=0):
+        self.tile_x = tile_x
+        self.tile_y = tile_y
+        self.stack = FakeStack()
+        self.removed = False
+
+    def remove_from_sprite_lists(self):
+        self.removed = True
 
 
 class TurnControllerTests(unittest.TestCase):
@@ -117,6 +150,59 @@ class TurnControllerTests(unittest.TestCase):
 
         self.assertTrue(handled)
         self.assertTrue(state.is_player_turn())
+
+    def test_auto_pickup_after_move_adds_stack_without_extra_turn(self):
+        state = StateManager()
+        state.enter_game(GamePhase.PLAYER_ANIM)
+        player = FakePlayer(tile_x=2, tile_y=3)
+        player.inventory = FakeInventory()
+        item = FakeItem(tile_x=2, tile_y=3)
+        log = FakeMessageLog()
+        controller, _, _ = self._controller(state, log)
+        controller.configure([[1]], FakeScene(player=player, items=[item]), player)
+
+        handled = controller.advance_after_player_animation(stairs_xy=None)
+
+        self.assertTrue(handled)
+        self.assertTrue(item.removed)
+        self.assertEqual(player.inventory.added_stacks, [item.stack])
+        self.assertTrue(state.is_player_turn())
+        self.assertEqual(log.messages, [("Вы подобрали Зелье", "loot")])
+
+    def test_manual_pickup_adds_stack_and_spends_turn(self):
+        state = StateManager()
+        state.enter_game(GamePhase.PLAYER_TURN)
+        player = FakePlayer(tile_x=2, tile_y=3)
+        player.inventory = FakeInventory()
+        item = FakeItem(tile_x=2, tile_y=3)
+        log = FakeMessageLog()
+        controller, _, _ = self._controller(state, log)
+        controller.configure([[1]], FakeScene(player=player, items=[item]), player)
+
+        picked_up = controller.pick_up_at_player()
+
+        self.assertTrue(picked_up)
+        self.assertTrue(item.removed)
+        self.assertEqual(player.inventory.added_stacks, [item.stack])
+        self.assertTrue(state.is_player_turn())
+        self.assertEqual(log.messages, [("Вы подобрали Зелье", "loot")])
+
+    def test_manual_pickup_failure_does_not_spend_turn(self):
+        state = StateManager()
+        state.enter_game(GamePhase.PLAYER_TURN)
+        player = FakePlayer(tile_x=2, tile_y=3)
+        player.inventory = FakeInventory(added=False)
+        item = FakeItem(tile_x=2, tile_y=3)
+        log = FakeMessageLog()
+        controller, _, _ = self._controller(state, log)
+        controller.configure([[1]], FakeScene(player=player, items=[item]), player)
+
+        picked_up = controller.pick_up_at_player()
+
+        self.assertFalse(picked_up)
+        self.assertFalse(item.removed)
+        self.assertTrue(state.is_player_turn())
+        self.assertEqual(log.messages, [("Инвентарь заполнен.", "info")])
 
     def test_player_on_stairs_triggers_depth_advance(self):
         state = StateManager()

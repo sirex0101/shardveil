@@ -25,6 +25,13 @@ class InventoryMoveResult:
     reason: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class InventoryAddResult:
+    added: bool
+    quantity_added: int = 0
+    reason: str | None = None
+
+
 def _empty_storage() -> list[ItemStack | None]:
     return [None for _ in range(STORAGE_SIZE)]
 
@@ -59,6 +66,43 @@ class Inventory:
 
     def get_equipment(self, slot: EquipmentSlot) -> ItemStack | None:
         return self.equipment.get(slot)
+
+    def add_stack(self, stack: ItemStack | None) -> InventoryAddResult:
+        if stack is None:
+            return InventoryAddResult(False, reason="Нечего подобрать.")
+
+        remaining = stack.quantity
+        for storage_stack in self.storage:
+            if storage_stack is None:
+                continue
+            if storage_stack.definition.item_id != stack.definition.item_id:
+                continue
+            if storage_stack.quantity >= storage_stack.definition.max_stack:
+                continue
+
+            quantity_added = min(
+                remaining,
+                storage_stack.definition.max_stack - storage_stack.quantity,
+            )
+            storage_stack.quantity += quantity_added
+            remaining -= quantity_added
+            if remaining <= 0:
+                return InventoryAddResult(True, stack.quantity)
+
+        for index, storage_stack in enumerate(self.storage):
+            if storage_stack is not None:
+                continue
+
+            quantity_added = min(remaining, stack.definition.max_stack)
+            self.storage[index] = ItemStack(stack.definition, quantity_added)
+            remaining -= quantity_added
+            if remaining <= 0:
+                return InventoryAddResult(True, stack.quantity)
+
+        added = stack.quantity - remaining
+        if added > 0:
+            return InventoryAddResult(True, added, "Инвентарь заполнен.")
+        return InventoryAddResult(False, reason="Инвентарь заполнен.")
 
     def get_cell(self, column: int, row: int) -> ItemStack | None:
         if column == 0:
