@@ -26,6 +26,7 @@ jobs:
   build:
     needs: validate-tag
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest

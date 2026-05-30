@@ -40,4 +40,5 @@ $env:NUITKA_CACHE_DIR = if ($env:NUITKA_CACHE_DIR) {
     --output-folder-name=Shardveil `
     --windows-console-mode=disable `
     --force-stderr-spec="{PROGRAM_BASE}.err.txt" `
+    --assume-yes-for-downloads `
     --windows-icon-from-ico=packaging/icons/shardveil.ico
