@@ -21,6 +21,8 @@
 ## Документация
 Полное описание игры можно найти в [дизайн документе игры (GDD)](docs/GDD.md).
 
+Локальная standalone-сборка через Nuitka описана в [docs/build_nuitka.md](docs/build_nuitka.md).
+
 ## Структура проекта
 ```
 shardveil/

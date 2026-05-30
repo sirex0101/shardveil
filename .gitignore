@@ -20,6 +20,8 @@ build/
 dist/
 *.spec
 *.egg-info/
+.nuitka-cache/
+nuitka-crash-report.xml
 
 # Logs
 *.log
