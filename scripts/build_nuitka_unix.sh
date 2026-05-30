@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   echo "Usage: scripts/build_nuitka_unix.sh"
   echo
-  echo "Builds Shardveil with Nuitka into build/nuitka/main.dist/."
+  echo "Builds Shardveil with Nuitka into build/nuitka/."
   echo "Requires .venv, project requirements, and Nuitka to be installed first."
   exit 0
 fi
@@ -26,15 +26,26 @@ fi
 
 if ! "$PYTHON" -m nuitka --version >/dev/null 2>&1; then
   echo "Missing Nuitka. Install it first:" >&2
-  echo "  .venv/bin/python -m pip install nuitka" >&2
+  echo "  .venv/bin/python -m pip install -r requirements-build.txt" >&2
   exit 1
 fi
 
 export NUITKA_CACHE_DIR="${NUITKA_CACHE_DIR:-$PWD/.nuitka-cache}"
 
-"$PYTHON" -m nuitka src/main.py \
-  --standalone \
-  --enable-plugin=numpy \
-  --include-data-dir=assets=assets \
-  --output-dir=build/nuitka \
+NUITKA_OPTIONS=(
+  --standalone
+  --include-data-dir=assets=assets
+  --output-dir=build/nuitka
   --output-filename=shardveil
+  --output-folder-name=Shardveil
+)
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  NUITKA_OPTIONS+=(
+    --macos-create-app-bundle
+    --macos-app-icon=packaging/icons/shardveil.icns
+    --macos-app-name=Shardveil
+  )
+fi
+
+"$PYTHON" -m nuitka src/main.py "${NUITKA_OPTIONS[@]}"

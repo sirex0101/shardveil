@@ -6,7 +6,7 @@ Set-Location $RepoRoot
 if ($args.Count -gt 0 -and ($args[0] -eq "-h" -or $args[0] -eq "--help")) {
     Write-Output "Usage: scripts\build_nuitka_windows.ps1"
     Write-Output ""
-    Write-Output "Builds Shardveil with Nuitka into build\nuitka\main.dist\."
+    Write-Output "Builds Shardveil with Nuitka into build\nuitka\Shardveil.dist\."
     Write-Output "Requires .venv, project requirements, and Nuitka to be installed first."
     exit 0
 }
@@ -23,7 +23,7 @@ if ($LASTEXITCODE -ne 0) {
 
 & $Python -m nuitka --version *> $null
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Missing Nuitka. Install it first: .venv\Scripts\python.exe -m pip install nuitka"
+    Write-Error "Missing Nuitka. Install it first: .venv\Scripts\python.exe -m pip install -r requirements-build.txt"
 }
 
 $env:NUITKA_CACHE_DIR = if ($env:NUITKA_CACHE_DIR) {
@@ -34,7 +34,10 @@ $env:NUITKA_CACHE_DIR = if ($env:NUITKA_CACHE_DIR) {
 
 & $Python -m nuitka src/main.py `
     --standalone `
-    --enable-plugin=numpy `
     --include-data-dir=assets=assets `
     --output-dir=build/nuitka `
-    --output-filename=shardveil
+    --output-filename=shardveil `
+    --output-folder-name=Shardveil `
+    --windows-console-mode=disable `
+    --force-stderr-spec="{PROGRAM_BASE}.err.txt" `
+    --windows-icon-from-ico=packaging/icons/shardveil.ico
