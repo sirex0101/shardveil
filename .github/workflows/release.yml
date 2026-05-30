@@ -128,6 +128,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          prerelease_args=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            prerelease_args+=(--prerelease)
+          fi
+
           gh release create "$GITHUB_REF_NAME" release-assets/* \
             --verify-tag \
-            --generate-notes
+            --generate-notes \
+            "${prerelease_args[@]}"
