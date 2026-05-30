@@ -24,18 +24,20 @@ def _build_cost_map(level, scene, actor, goal_tile: tuple[int, int] | None) -> n
     if walkable_mask.size == 0:
         return walkable_mask
 
-    goal_x, goal_y = goal_tile if goal_tile is not None else (None, None)
     for entity in iter_blocking_entities(scene, ignore=actor):
         ex = getattr(entity, "tile_x", None)
         ey = getattr(entity, "tile_y", None)
         if ex is None or ey is None:
             continue
-        if goal_tile is not None and (ex, ey) == (goal_x, goal_y):
+        if goal_tile is not None and (ex, ey) == goal_tile:
             continue
         if 0 <= ey < walkable_mask.shape[0] and 0 <= ex < walkable_mask.shape[1]:
             walkable_mask[ey, ex] = 0
 
-    if goal_tile is not None and 0 <= goal_y < walkable_mask.shape[0] and 0 <= goal_x < walkable_mask.shape[1]:
+    if goal_tile is not None:
+        goal_x, goal_y = goal_tile
+        if not (0 <= goal_y < walkable_mask.shape[0] and 0 <= goal_x < walkable_mask.shape[1]):
+            return walkable_mask
         walkable_mask[goal_y, goal_x] = 1
 
     return walkable_mask

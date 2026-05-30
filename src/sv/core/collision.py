@@ -25,9 +25,10 @@ def iter_blocking_entities(scene, ignore=None):
     if scene is None:
         return
 
-    sprite_lists = getattr(scene, "sprite_lists", None)
+    sprite_lists = getattr(scene, "sprite_lists", None) or getattr(scene, "_sprite_lists", None)
     if sprite_lists:
-        for sprites in sprite_lists.values():
+        values = sprite_lists.values() if hasattr(sprite_lists, "values") else sprite_lists
+        for sprites in values:
             try:
                 for sprite in sprites:
                     if sprite is ignore:
@@ -116,6 +117,8 @@ def attempt_move(entity, dx: int, dy: int, level, scene) -> tuple[MoveResult, ob
     res, blocker, target_tx, target_ty = can_move(entity, dx, dy, level, scene)
     if res != MoveResult.MOVED:
         return res, blocker
+    if target_tx is None or target_ty is None:
+        return MoveResult.BLOCKED_WALL, None
 
     # Коммит перемещения: обновим tile и мировые координаты
     try:

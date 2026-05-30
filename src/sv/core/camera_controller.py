@@ -99,7 +99,7 @@ class CameraController:
         if width > 0 and height > 0:
             return width, height
 
-        if hasattr(viewport, "size"):
+        if viewport is not None and hasattr(viewport, "size"):
             size = viewport.size
             if len(size) == 2:
                 return float(size[0]), float(size[1])

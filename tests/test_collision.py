@@ -29,6 +29,12 @@ class DummyScene:
         self.sprite_lists = {"Entities": entities}
 
 
+class ArcadeLikeScene:
+    def __init__(self, entities):
+        self.sprite_lists = None
+        self._sprite_lists = [entities]
+
+
 class CollisionTests(unittest.TestCase):
     def setUp(self):
         # 2x2 all-walkable map
@@ -61,6 +67,16 @@ class CollisionTests(unittest.TestCase):
         scene = DummyScene([mover, walling_entity])
 
         res, blocker, _, _ = can_move(mover, 1, 0, self.level, scene)
+        self.assertEqual(res, MoveResult.BLOCKED_ENTITY)
+        self.assertIs(blocker, walling_entity)
+
+    def test_arcade_scene_private_sprite_lists_block_move(self):
+        mover = DummyEntity(0, 0, blocking=True)
+        walling_entity = DummyEntity(1, 0, blocking=True)
+        scene = ArcadeLikeScene([mover, walling_entity])
+
+        res, blocker, _, _ = can_move(mover, 1, 0, self.level, scene)
+
         self.assertEqual(res, MoveResult.BLOCKED_ENTITY)
         self.assertIs(blocker, walling_entity)
 
